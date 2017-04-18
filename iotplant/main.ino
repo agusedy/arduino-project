@@ -15,7 +15,7 @@
 dht DHT;
 EthernetClient client;
 
-const char* server = "edyagusc.id.tunnel.my.id";  // server's address
+const char* server = "xxxxxx.xx";  // server's address
 const unsigned long BAUD_RATE = 9600;      // serial connection speed
 const unsigned long HTTP_TIMEOUT = 10000;  // max respone time from server
 const size_t MAX_CONTENT_SIZE = 161;       // max size of the HTTP response
