@@ -1,94 +1,100 @@
 // Sample Arduino Json Web Client
 // Downloads and parse http://jsonplaceholder.typicode.com/users/1
-//
+// 
 // Copyright Benoit Blanchon 2014-2017
 // MIT License
-//
+// 
 // Arduino JSON library
 // https://bblanchon.github.io/ArduinoJson/
 // If you like this project, please add a star!
-
+// #include <avr/wdt.h>
 #include <ArduinoJson.h>
 #include <UIPEthernet.h> // Used for Ethernet
 #include <dht.h>
-//#include <SPI.h>
+#include <SimpleTimer.h>
+
 dht DHT;
+SimpleTimer timer;
 EthernetClient client;
 
-const char* server = "xxxxxx.xx";  // server's address
-const unsigned long BAUD_RATE = 9600;      // serial connection speed
-const unsigned long HTTP_TIMEOUT = 10000;  // max respone time from server
-const size_t MAX_CONTENT_SIZE = 161;       // max size of the HTTP response
+const char * server = "xxx.com"; // server's address
+const unsigned long BAUD_RATE = 9600; // serial connection speed
+const unsigned long HTTP_TIMEOUT = 10000; // max respone time from server
+const size_t MAX_CONTENT_SIZE = 161; // max size of the HTTP response
+const int onboardLED  = 13;
+const int resetPin  = 3;
 
 // The type of data that we want to extract from the page
-struct UserData {
+struct UserData
+{
   char siram[1];
   // char humiditas[5];
 };
 
-// ARDUINO entry point #1: runs once when you press reset or power the board
-void setup() {
-  initSerial();
-  initEthernet();
-  // DHT.read11(2);
+//void(* resetFunc) (void) = 0;
+
+void resetWire(){
+  digitalWrite(resetPin, LOW);
+  delay(200);
 }
 
-void(* resetFunc) (void) = 0; 
-
-// ARDUINO entry point #2: runs over and over again forever
-void loop() {
-  if (connect(server)) {
-    if (sendRequest(server) && skipResponseHeaders()) {
+void runProgram(){
+  if (connect(server))
+  {
+    if (sendRequest(server) && skipResponseHeaders())
+    {
       UserData userData;
-      if (readReponseContent(&userData)) {
-        printUserData(&userData);
+      if (readReponseContent(& userData))
+      {
+        // printUserData(& userData);
       }
     }
   }
   disconnect();
-  wait();
-  resetFunc();
 }
 
-bool sendPost(const char* server) {
-    // Serial.println("POST Data ");
-    // Serial.println(resource);
-    DHT.read11(2);
-    // Make a HTTP request:
-    client.print( "GET /iotplant/index.php/status?");
-    client.print("alat=");
-    client.print( "0x1e950f" );
-    client.print("&");
-    client.print("suhu=");
-    client.print(DHT.temperature, 1);
-    client.print("&");
-    client.print("humiditas=");
-    client.print(DHT.humidity, 1);  
-    client.println( " HTTP/1.1");
-    client.print( "Host: ");
-    client.println(server);
-    client.println( "Connection: close" );
-    client.println();
-    // client.println();
-    // client.stop();
+// ARDUINO entry point #1: runs once when you press reset or power the board
+void setup()
+{
+  digitalWrite(resetPin, HIGH);
+  delay(200);
+  pinMode(resetPin, OUTPUT);
+//  initSerial();
+  initEthernet();
+  timer.setInterval(5000, runProgram);
+  timer.setInterval(60000, resetWire);
+// wdt_enable(WDTO_2S);
+}
 
-    return true;
+// ARDUINO entry point #2: runs over and over again forever
+void loop()
+{
+  // pinMode(onboardLED, OUTPUT);
+  timer.run();
+  // wdt_reset();
 }
 
 // Initialize Serial port
-void initSerial() {
-  Serial.begin(BAUD_RATE);
-  while (!Serial) {
-    ;  // wait for serial port to initialize
-  }
-  // Serial.println("Serial ready");
-}
+// void initSerial()
+// {
+//   Serial.begin(BAUD_RATE);
+//   while (!Serial)
+//   {
+//     ; // wait for serial port to initialize
+//   }
+//   // Serial.println("Serial ready");
+// }
 
 // Initialize Ethernet library
-void initEthernet() {
-  byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
-  if (!Ethernet.begin(mac)) {
-    Serial.println("Failed to configure Ethernet");
+void initEthernet()
+{
+  byte mac[] =
+  {
+    0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED
+  };
+  if (!Ethernet.begin(mac))
+  {
+    // Serial.println("Failed to configure Ethernet");
     return;
   }
   // Serial.println("Ethernet ready");
@@ -96,124 +102,86 @@ void initEthernet() {
 }
 
 // Open connection to the HTTP server
-bool connect(const char* hostName) {
+bool connect(const char * hostName)
+{
   // Serial.print("Connect to ");
   // Serial.println(hostName);
-
   bool ok = client.connect(hostName, 80);
-
-  Serial.println(ok ? "Connected" : "Connection Failed!");
+  // Serial.println(ok? "Connected HTTP":"Connection Failed!");
   return ok;
 }
 
 // Send the HTTP GET request to the server
-bool sendRequest(const char* host) {
-  //Serial.print("GET ");
-  //Serial.println(resource);
+bool sendRequest(const char * host)
+{
   // const char* resource = "/iotplant/index.php/status?alat=0x1e950f"; // http resource
-  // const char* resource = "/iotplant/index.php/status?alat=0x1e950f"; // http resource
-  // client.print("GET ");
-  // client.print(resource);
   DHT.read11(2);
-  client.print( "GET /iotplant/index.php/status?");
+  delay(500);
+  client.print("GET /iotplant/index.php/status?");
   client.print("alat=");
-  client.print( "0x1e950f" );
+  client.print("0x1e950f");
   client.print("&");
   client.print("suhu=");
   client.print(DHT.temperature, 1);
   client.print("&");
   client.print("humiditas=");
-  client.print(DHT.humidity, 1); 
+  client.print(DHT.humidity, 1);
   client.println(" HTTP/1.0");
   client.print("Host: ");
   client.println(host);
   client.println("Connection: close");
   client.println();
-
   return true;
 }
 
 // Skip HTTP headers so that we are at the beginning of the response's body
-bool skipResponseHeaders() {
+bool skipResponseHeaders()
+{
   // HTTP headers end with an empty line
   char endOfHeaders[] = "\r\n\r\n";
-
   client.setTimeout(HTTP_TIMEOUT);
   bool ok = client.find(endOfHeaders);
-
-  if (!ok) {
-    Serial.println("No response or invalid response!");
+  if (!ok)
+  {
+    // Serial.println("No response or invalid response!");
   }
-
   return ok;
 }
 
-// Parse the JSON from the input string and extract the interesting values
-// Here is the JSON we need to parse
-// {
-//   "id": 1,
-//   "name": "Leanne Graham",
-//   "username": "Bret",
-//   "email": "Sincere@april.biz",
-//   "address": {
-//     "street": "Kulas Light",
-//     "suite": "Apt. 556",
-//     "city": "Gwenborough",
-//     "zipcode": "92998-3874",
-//     "geo": {
-//       "lat": "-37.3159",
-//       "lng": "81.1496"
-//     }
-//   },
-//   "phone": "1-770-736-8031 x56442",
-//   "website": "hildegard.org",
-//   "company": {
-//     "name": "Romaguera-Crona",
-//     "catchPhrase": "Multi-layered client-server neural-net",
-//     "bs": "harness real-time e-markets"
-//   }
-// }
-bool readReponseContent(struct UserData* userData) {
+bool readReponseContent(struct UserData * userData)
+{
   // Compute optimal size of the JSON buffer according to what we need to parse.
   // This is only required if you use StaticJsonBuffer.
   const size_t BUFFER_SIZE =
-      JSON_OBJECT_SIZE(8)    // the root object has 8 elements
-      + MAX_CONTENT_SIZE;    // additional space for strings
-
+  JSON_OBJECT_SIZE(8) // the root object has 8 elements
+    + MAX_CONTENT_SIZE; // additional space for strings
   // Allocate a temporary memory pool
   DynamicJsonBuffer jsonBuffer(BUFFER_SIZE);
-
-  JsonObject& root = jsonBuffer.parseObject(client);
-
-  if (!root.success()) {
+  JsonObject & root = jsonBuffer.parseObject(client);
+  if (!root.success())
+  {
     // Serial.println("JSON parsing failed!");
     return false;
   }
-
   // Here were copy the strings we're interested in
-  strcpy(userData->siram, root["siram"]);
+  strcpy(userData -> siram, root["siram"]);
   // strcpy(userData->humiditas, root["humiditas"]);
   // It's not mandatory to make a copy, you could just use the pointers
   // Since, they are pointing inside the "content" buffer, so you need to make
   // sure it's still in memory when you read the string
-
   return true;
 }
 
 // Print the data extracted from the JSON
-void printUserData(const struct UserData* userData) {
-  Serial.print("siram = ");
-  Serial.println(userData->siram);
-}
+// void printUserData(const struct UserData * userData)
+// {
+//   Serial.print("siram = ");
+//   Serial.println(userData -> siram);
+// }
 
 // Close the connection with the HTTP server
-void disconnect() {
+void disconnect()
+{
   // Serial.println("Disconnect");
   client.stop();
-}
-
-// Pause for a 1 minute
-void wait() {
-  // Serial.println("Wait 2 seconds");
-  delay(2000);
 }
